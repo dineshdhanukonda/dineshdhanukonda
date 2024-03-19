@@ -1,0 +1,54 @@
+#k8s s3 (start,stop & status);
+
+---
+- hosts: kubernetes  # Replace with your inventory group
+  collections:
+    - kubernetes.core
+  tasks:
+  - name: Define application list (modify as needed)
+    set_fact:
+      apps:
+      - app1
+      - app2
+      - # Add more application names here
+
+  - name: Loop through applications
+    loop: "{{ apps }}"
+      loop_control:
+        loop_var: app_name
+    subtasks:
+    - name: Get application status
+      kubernetes.core.k8s_info:
+        kind: Deployment
+        name: "{{ app_name }}"
+      register: app_info
+
+    - name: Check if application exists
+      debug:
+        msg: "Application '{{ app_name }}' not found!"
+      when: app_info.state is undefined
+
+    - name: Manage application based on action (modify based on needs)
+      block:
+      - name: Start application
+        kubernetes.core.k8s:
+          state: present
+          kind: Deployment
+          name: "{{ app_name }}"
+        when: action == "start"
+
+      - name: Stop application
+        kubernetes.core.k8s:
+          state: absent
+          kind: Deployment
+          name: "{{ app_name }}"
+        when: action == "stop"
+
+      - name: Get pod count
+        set_fact:
+          pod_count: "{{ app_info.pods.current }}"
+
+      - name: Display application status
+        debug:
+          msg: "Application: {{ app_name }}\n  Status: {{ app_info.state }}\n  Pods: {{ pod_count }}"
+      when: action == "status"
